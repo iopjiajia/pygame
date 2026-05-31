@@ -1,0 +1,137 @@
+import pygame
+import sys
+
+class Rocket:
+    def __init__(self, center_x, center_y, scale=6):
+        # A simple pixel art rocket using strings (0: empty, 1: white hull, 2: red fins)
+        self.pixel_data = [
+            "000010000",
+            "000111000",
+            "001111100",
+            "001111100",
+            "021111120",
+            "221111122",
+            "221111122",
+            "200111002",
+            "000333000"  # 3: orange exhaust
+        ]
+        
+        # Define colors
+        colors = {
+            '1': (240, 240, 240), # White/Grey
+            '2': (220, 50, 50),   # Red
+            '3': (255, 150, 0)    # Orange
+        }
+        
+        # Dimensions of the unscaled rocket
+        width = len(self.pixel_data[0])
+        height = len(self.pixel_data)
+        
+        # Create a transparent surface
+        sprite_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+        
+        # Draw the pixels onto the surface
+        for y, row in enumerate(self.pixel_data):
+            for x, pixel in enumerate(row):
+                if pixel in colors:
+                    sprite_surface.set_at((x, y), colors[pixel])
+
+        # Scale up the image
+        scaled_size = (width * scale, height * scale)
+        self.image = pygame.transform.scale(sprite_surface, scaled_size)
+        
+        # Set the rect to center the character, used for positioning and collisions
+        self.rect = self.image.get_rect(center=(center_x, center_y))
+        
+        # Movement speed in pixels per frame
+        self.speed = 7
+
+    def update(self, keys, screen_width, screen_height):
+        """Update the rocket's position based on keyboard input and check boundaries."""
+        # Calculate intended movement
+        if keys[pygame.K_LEFT]:
+            self.rect.x -= self.speed
+        if keys[pygame.K_RIGHT]:
+            self.rect.x += self.speed
+        if keys[pygame.K_UP]:
+            self.rect.y -= self.speed
+        if keys[pygame.K_DOWN]:
+            self.rect.y += self.speed
+
+        # --- Boundary Checking ---
+        # Prevent the rocket from moving off the left edge
+        if self.rect.left < 0:
+            self.rect.left = 0
+            
+        # Prevent the rocket from moving off the right edge
+        if self.rect.right > screen_width:
+            self.rect.right = screen_width
+            
+        # Prevent the rocket from moving off the top edge
+        if self.rect.top < 0:
+            self.rect.top = 0
+            
+        # Prevent the rocket from moving off the bottom edge
+        if self.rect.bottom > screen_height:
+            self.rect.bottom = screen_height
+
+    def draw(self, surface):
+        """Draw the rocket onto the given surface."""
+        surface.blit(self.image, self.rect)
+
+
+def main():
+    # Initialize all Pygame modules
+    pygame.init()
+    
+    # Define window dimensions
+    SCREEN_WIDTH = 800
+    SCREEN_HEIGHT = 600
+    
+    # Deep space background color
+    SPACE_COLOR = (10, 15, 30)
+    
+    # Set up the display
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    pygame.display.set_caption("Rocket Explorer")
+
+    # Initialize the clock to manage frame rate
+    clock = pygame.time.Clock()
+
+    # Create the rocket at the exact center of the screen
+    rocket = Rocket(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
+
+    running = True
+
+    while running:
+        # 1. Event Handling
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+                
+        # Get the current state of all keyboard buttons
+        keys = pygame.key.get_pressed()
+
+        # 2. Game Logic / State Updates
+        # Pass the keys and screen dimensions to handle movement and boundaries
+        rocket.update(keys, SCREEN_WIDTH, SCREEN_HEIGHT)
+
+        # 3. Drawing
+        # Clear the screen with the background color
+        screen.fill(SPACE_COLOR)
+        
+        # Draw the rocket at its new position
+        rocket.draw(screen)
+
+        # Update the full display Surface to the screen
+        pygame.display.flip()
+        
+        # Cap the frame rate at 60 FPS for consistent speed
+        clock.tick(60)
+
+    # Quit Pygame cleanly
+    pygame.quit()
+    sys.exit()
+
+if __name__ == "__main__":
+    main()
