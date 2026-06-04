@@ -1,0 +1,189 @@
+import sys
+import pygame
+from pygame.sprite import Sprite, Group
+
+class Settings:
+    """A class to store all settings for the Sideways Shooter game."""
+    def __init__(self):
+        # Screen settings
+        self.screen_width = 800
+        self.screen_height = 600
+        self.bg_color = (25, 25, 40) # Dark space-like background
+
+        # Ship settings
+        self.ship_speed = 5.0
+        self.ship_color = (0, 200, 255) # Cyan colored ship
+
+        # Bullet settings
+        self.bullet_speed = 10.0
+        self.bullet_width = 15   # Long and thin for horizontal movement
+        self.bullet_height = 4
+        self.bullet_color = (255, 255, 0) # Yellow laser
+        self.bullets_allowed = 5 # Limit bullets on screen
+
+class Ship:
+    """A class to manage the player's ship."""
+    def __init__(self, ai_game):
+        """Initialize the ship and set its starting position."""
+        self.screen = ai_game.screen
+        self.settings = ai_game.settings
+        self.screen_rect = ai_game.screen.get_rect()
+
+        # Create a rect to represent the ship's position and size
+        self.rect = pygame.Rect(0, 0, 40, 40)
+        
+        # Start each new ship at the left center of the screen
+        self.rect.left = 20 # 20 pixels from the left edge
+        self.rect.centery = self.screen_rect.centery
+
+        # Store a decimal value for the ship's vertical position
+        self.y = float(self.rect.y)
+
+        # Movement flags
+        self.moving_up = False
+        self.moving_down = False
+
+    def update(self):
+        """Update the ship's position based on movement flags."""
+        # Update the ship's y value, not the rect.
+        # Ensure the ship doesn't move off the top or bottom edge.
+        if self.moving_up and self.rect.top > 0:
+            self.y -= self.settings.ship_speed
+        if self.moving_down and self.rect.bottom < self.screen_rect.bottom:
+            self.y += self.settings.ship_speed
+
+        # Update rect object from self.y
+        self.rect.y = self.y
+
+    def blitme(self):
+        """Draw the ship at its current location."""
+        # Instead of an image, we draw a triangle pointing right
+        point_1 = (self.rect.left, self.rect.top)         # Top left
+        point_2 = (self.rect.right, self.rect.centery)    # Middle right (nose of ship)
+        point_3 = (self.rect.left, self.rect.bottom)      # Bottom left
+        
+        pygame.draw.polygon(self.screen, self.settings.ship_color, [point_1, point_2, point_3])
+
+class Bullet(Sprite):
+    """A class to manage bullets fired from the ship."""
+    def __init__(self, ai_game):
+        """Create a bullet object at the ship's current position."""
+        super().__init__()
+        self.screen = ai_game.screen
+        self.settings = ai_game.settings
+
+        # Create a bullet rect at (0, 0) and then set correct position.
+        self.rect = pygame.Rect(0, 0, self.settings.bullet_width, self.settings.bullet_height)
+        
+        # The bullet should appear from the "nose" (right side) of the ship
+        self.rect.left = ai_game.ship.rect.right
+        self.rect.centery = ai_game.ship.rect.centery
+
+        # Store the bullet's position as a decimal value
+        self.x = float(self.rect.x)
+
+    def update(self):
+        """Move the bullet to the right across the screen."""
+        # Update the decimal position of the bullet
+        self.x += self.settings.bullet_speed
+        # Update the rect position
+        self.rect.x = self.x
+
+    def draw_bullet(self):
+        """Draw the bullet to the screen."""
+        pygame.draw.rect(self.screen, self.settings.bullet_color, self.rect)
+
+class SidewaysShooter:
+    """Overall class to manage game assets and behavior."""
+    def __init__(self):
+        """Initialize the game, and create game resources."""
+        pygame.init()
+        self.settings = Settings()
+
+        self.screen = pygame.display.set_mode(
+            (self.settings.screen_width, self.settings.screen_height))
+        pygame.display.set_caption("Sideways Shooter")
+
+        self.clock = pygame.time.Clock()
+        self.ship = Ship(self)
+        self.bullets = Group()
+
+    def run_game(self):
+        """Start the main loop for the game."""
+        while True:
+            self._check_events()
+            self.ship.update()
+            self._update_bullets()
+            self._update_screen()
+            
+            # Limit the frame rate to 60 FPS
+            self.clock.tick(60)
+
+    def _check_events(self):
+        """Respond to keypresses and mouse events."""
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                self._check_keydown_events(event)
+            elif event.type == pygame.KEYUP:
+                self._check_keyup_events(event)
+
+    def _check_keydown_events(self, event):
+        """Respond to keypresses."""
+        if event.key == pygame.K_UP:
+            self.ship.moving_up = True
+        elif event.key == pygame.K_DOWN:
+            self.ship.moving_down = True
+        elif event.key == pygame.K_SPACE:
+            self._fire_bullet()
+        elif event.key == pygame.K_q:
+            pygame.quit()
+            sys.exit()
+
+    def _check_keyup_events(self, event):
+        """Respond to key releases."""
+        if event.key == pygame.K_UP:
+            self.ship.moving_up = False
+        elif event.key == pygame.K_DOWN:
+            self.ship.moving_down = False
+
+    def _fire_bullet(self):
+        """Create a new bullet and add it to the bullets group."""
+        if len(self.bullets) < self.settings.bullets_allowed:
+            new_bullet = Bullet(self)
+            self.bullets.add(new_bullet)
+
+    def _update_bullets(self):
+        """Update position of bullets and get rid of old bullets."""
+        # Update bullet positions (this calls the update() method of every Bullet in the group)
+        self.bullets.update()
+
+        # Get rid of bullets that have disappeared off the right edge of the screen.
+        # We use a copy of the group because we shouldn't modify a list/group while looping through it.
+        for bullet in self.bullets.copy():
+            if bullet.rect.left > self.settings.screen_width:
+                self.bullets.remove(bullet)
+        
+        # Optional: Print how many bullets currently exist to verify they are being deleted!
+        # print(len(self.bullets)) 
+
+    def _update_screen(self):
+        """Update images on the screen, and flip to the new screen."""
+        self.screen.fill(self.settings.bg_color)
+        
+        # Draw the ship
+        self.ship.blitme()
+        
+        # Draw all bullets
+        for bullet in self.bullets.sprites():
+            bullet.draw_bullet()
+
+        # Make the most recently drawn screen visible.
+        pygame.display.flip()
+
+if __name__ == '__main__':
+    # Make a game instance, and run the game.
+    ai = SidewaysShooter()
+    ai.run_game()
